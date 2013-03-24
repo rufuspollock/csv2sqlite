@@ -41,13 +41,14 @@ def _guess_types(fileobj, max_sample_size=100):
     reader = csv.reader(fileobj)
     # skip header
     _headers = reader.next()
+    # we default to text for each field
     types = ['text'] * len(_headers)
     # order matters
     # (order in form of type you want used in case of tie to be last)
     options = [
+        ('text', unicode),
         ('real', float),
-        ('integer', int),
-        ('text', unicode)
+        ('integer', int)
         # 'date',
         ]
     # for each column a set of bins for each type counting successful casts
@@ -60,6 +61,8 @@ def _guess_types(fileobj, max_sample_size=100):
     for count,row in enumerate(reader):
         for idx,cell in enumerate(row):
             cell = cell.strip()
+            # replace ',' with '' to improve cast accuracy for ints and floats
+            cell = cell.replace(',', '')
             for key,cast in options:
                 try:
                     # for null cells we can assume success
