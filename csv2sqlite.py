@@ -18,7 +18,7 @@ def convert(filepath_or_fileobj, dbpath, table='data'):
     headers = reader.next()
 
     _columns = ','.join(
-        ['%s %s' % (header, _type) for (header,_type) in zip(headers, types)]
+        ['"%s" %s' % (header, _type) for (header,_type) in zip(headers, types)]
         )
 
     conn = sqlite3.connect(dbpath)
