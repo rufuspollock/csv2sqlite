@@ -72,14 +72,14 @@ def _guess_types(fileobj, max_sample_size=100):
                     # for null cells we can assume success
                     if cell:
                         cast(cell)
-                    results[idx][key] = (results[idx][key]*count + 1) / float(count+1)
+                    results[idx][key] += 1
                 except (ValueError), inst:
                     pass
         if count >= max_sample_size:
             break
     for idx,colresult in enumerate(results):
         for _type, dontcare in options:
-            if colresult[_type] == 1.0:
+            if colresult[_type] == count + 1:
                 types[idx] = _type
     return types
 
