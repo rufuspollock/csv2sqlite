@@ -3,6 +3,7 @@
 #
 # @author: Rufus Pollock
 # Placed in the Public Domain
+# Bug fixes by Simon Heimlicher <sh@nine.ch> marked by `shz:'
 import csv
 import sqlite3
 
@@ -22,6 +23,8 @@ def convert(filepath_or_fileobj, dbpath, table='data'):
         )
 
     conn = sqlite3.connect(dbpath)
+    # shz: fix error with non-ASCII input
+    conn.text_factory = str
     c = conn.cursor()
     c.execute('CREATE table %s (%s)' % (table, _columns))
 
@@ -32,7 +35,12 @@ def convert(filepath_or_fileobj, dbpath, table='data'):
         # recognize them properly ...
         row = [ x.replace(',', '') if y in ['real', 'integer'] else x
                 for (x,y) in zip(row, types) ]
-        c.execute(_insert_tmpl, row)
+        # shz: output line on which exception occurred and continue
+        try:
+            c.execute(_insert_tmpl, row)
+        except Exception, e:
+            print "Error on line '%s'" % row, e
+
 
     conn.commit()
     c.close()
@@ -73,7 +81,8 @@ def _guess_types(fileobj, max_sample_size=100):
                     if cell:
                         cast(cell)
                     results[idx][key] += 1
-                except (ValueError), inst:
+                # shz: ignore all exceptions
+                except (Exception), inst:
                     pass
         if count >= max_sample_size:
             break
