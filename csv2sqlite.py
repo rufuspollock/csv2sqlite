@@ -26,7 +26,11 @@ def convert(filepath_or_fileobj, dbpath, table='data'):
     # shz: fix error with non-ASCII input
     conn.text_factory = str
     c = conn.cursor()
-    c.execute('CREATE table %s (%s)' % (table, _columns))
+
+    try:
+        c.execute('CREATE table %s (%s)' % (table, _columns))
+    except:
+        pass
 
     _insert_tmpl = 'insert into %s values (%s)' % (table,
         ','.join(['?']*len(headers)))
