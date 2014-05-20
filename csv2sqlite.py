@@ -26,15 +26,22 @@ def convert(filepath_or_fileobj, dbpath, table='data'):
     # shz: fix error with non-ASCII input
     conn.text_factory = str
     c = conn.cursor()
-    c.execute('CREATE table %s (%s)' % (table, _columns))
+
+    try:
+        c.execute('CREATE table %s (%s)' % (table, _columns))
+    except:
+        pass
 
     _insert_tmpl = 'insert into %s values (%s)' % (table,
         ','.join(['?']*len(headers)))
     for row in reader:
         # we need to take out commas from int and floats for sqlite to
         # recognize them properly ...
-        row = [ x.replace(',', '') if y in ['real', 'integer'] else x
-                for (x,y) in zip(row, types) ]
+        row = [
+            None if x == ''
+            else float(x.replace(',', '')) if y == 'real'
+            else int(x) if y == 'integer'
+            else x for (x,y) in zip(row, types) ]
         # shz: output line on which exception occurred and continue
         try:
             c.execute(_insert_tmpl, row)
