@@ -35,6 +35,8 @@ def convert(filepath_or_fileobj, dbpath, table='data'):
     _insert_tmpl = 'insert into %s values (%s)' % (table,
         ','.join(['?']*len(headers)))
     for row in reader:
+        if len(row) == 0:
+            continue
         # we need to take out commas from int and floats for sqlite to
         # recognize them properly ...
         row = [
