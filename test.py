@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+import csv
+import sqlite3
+
 from csv2sqlite import convert
 
 def test():
@@ -20,3 +24,6 @@ efg,3,3.0'''
     c.execute('select count(*) from %s' % table);
     row = c.next()
     assert row[0] == 3, row
+
+if __name__ == '__main__':
+       test()
