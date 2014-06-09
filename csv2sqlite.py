@@ -7,12 +7,20 @@
 import csv
 import sqlite3
 
+def detectDelimiter(fo):
+     header = fo.readline()
+     if header.find(";")!=-1:
+        return ";"
+     if header.find(",")!=-1:
+        return ","
+     return ";"
+
 def convert(filepath_or_fileobj, dbpath, table='data'):
     if isinstance(filepath_or_fileobj, basestring):
         fo = open(filepath_or_fileobj)
     else:
         fo = filepath_or_fileobj
-    reader = csv.reader(fo)
+    reader = csv.reader(fo, delimiter=detectDelimiter(fo))
 
     types = _guess_types(fo)
     fo.seek(0)
@@ -59,7 +67,7 @@ def _guess_types(fileobj, max_sample_size=100):
 
     :param fileobj: read-only file object for a CSV file.
     '''
-    reader = csv.reader(fileobj)
+    reader = csv.reader(fileobj, delimiter=detectDelimiter(fileobj))
     # skip header
     _headers = reader.next()
     # we default to text for each field
@@ -83,7 +91,10 @@ def _guess_types(fileobj, max_sample_size=100):
         for idx,cell in enumerate(row):
             cell = cell.strip()
             # replace ',' with '' to improve cast accuracy for ints and floats
-            cell = cell.replace(',', '')
+            if(cell.count(',')):
+               cell = cell.replace(',', '')
+               if(cell.count('E') == 0):
+                  cell = cell + "E0"
             for key,cast in options:
                 try:
                     # for null cells we can assume success
