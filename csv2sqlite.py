@@ -77,6 +77,7 @@ def _guess_types(fileobj, max_sample_size=100):
         'text': 0
         }
     results = [ dict(perresult) for x in range(len(_headers)) ]
+    count =  0
     for count,row in enumerate(reader):
         for idx,cell in enumerate(row):
             cell = cell.strip()
