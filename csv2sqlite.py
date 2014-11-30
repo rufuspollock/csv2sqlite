@@ -8,6 +8,9 @@ import csv
 import sqlite3
 
 def convert(filepath_or_fileobj, dbpath, table='data'):
+    # detects table name from filename
+    table = os.path.basename(filepath_or_fileobj).split(".")[0]
+    
     if isinstance(filepath_or_fileobj, basestring):
         fo = open(filepath_or_fileobj, 'rU')
     else:
