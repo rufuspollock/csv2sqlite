@@ -9,7 +9,7 @@ import sqlite3
 
 def convert(filepath_or_fileobj, dbpath, table='data'):
     if isinstance(filepath_or_fileobj, basestring):
-        fo = open(filepath_or_fileobj)
+        fo = open(filepath_or_fileobj, 'rU')
     else:
         fo = filepath_or_fileobj
     reader = csv.reader(fo)
