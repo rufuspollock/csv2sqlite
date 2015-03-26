@@ -139,6 +139,6 @@ The database is created if it does not yet exist.
 ''')
     parser.add_argument('csv_file', type=str, help='Input CSV file path')
     parser.add_argument('sqlite_db_file', type=str, help='Output SQLite file')
-    parser.add_argument('--table [name]', dest='table_name', type=str, help='Name of table to write to in SQLite file', default='data')
+    parser.add_argument('table_name', type=str, nargs='?', help='Name of table to write to in SQLite file', default='data')
     args = parser.parse_args()
     convert(args.csv_file, args.sqlite_db_file, args.table_name)
