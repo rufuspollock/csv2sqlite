@@ -1,30 +1,32 @@
 #!/usr/bin/env python
+#
 # A simple Python script to convert csv files to sqlite (with type guessing)
 #
 # @author: Rufus Pollock
 # Placed in the Public Domain
 # Bug fixes by Simon Heimlicher <sh@nine.ch> marked by `shz:'
+
+from __future__ import print_function
+
+import argparse
 import csv
 import sqlite3
 
-def detectDelimiter(fo):
-     header = fo.readline()
-     if header.find(";")!=-1:
-        return ";"
-     if header.find(",")!=-1:
-        return ","
-     return ";"
-
-def convert(filepath_or_fileobj, dbpath, table='data'):
+def convert(filepath_or_fileobj, dbpath, table):
     if isinstance(filepath_or_fileobj, basestring):
         fo = open(filepath_or_fileobj)
     else:
         fo = filepath_or_fileobj
-    reader = csv.reader(fo, delimiter=detectDelimiter(fo))
 
-    types = _guess_types(fo)
+    dialect = csv.Sniffer().sniff(fo.readline())
     fo.seek(0)
-    headers = reader.next()
+
+    reader = csv.reader(fo, dialect)
+    types = _guess_types(reader)
+    fo.seek(0)
+
+    reader = csv.reader(fo, dialect)
+    headers = [header.strip() for header in reader.next()]
 
     _columns = ','.join(
         ['"%s" %s' % (header, _type) for (header,_type) in zip(headers, types)]
@@ -36,38 +38,42 @@ def convert(filepath_or_fileobj, dbpath, table='data'):
     c = conn.cursor()
 
     try:
-        c.execute('CREATE table %s (%s)' % (table, _columns))
+        create_query = 'CREATE TABLE %s (%s)' % (table, _columns)
+        c.execute(create_query)
     except:
         pass
 
-    _insert_tmpl = 'insert into %s values (%s)' % (table,
+    _insert_tmpl = 'INSERT INTO %s VALUES (%s)' % (table,
         ','.join(['?']*len(headers)))
+
+    line = 0
     for row in reader:
+        line += 1
         if len(row) == 0:
             continue
         # we need to take out commas from int and floats for sqlite to
         # recognize them properly ...
-        row = [
-            None if x == ''
-            else float(x.replace(',', '')) if y == 'real'
-            else int(x) if y == 'integer'
-            else x for (x,y) in zip(row, types) ]
-        # shz: output line on which exception occurred and continue
         try:
+            row = [
+                None if x == ''
+                else float(x.replace(',', '')) if y == 'real'
+                else int(x) if y == 'integer'
+                else x for (x,y) in zip(row, types) ]
             c.execute(_insert_tmpl, row)
+        except ValueError, e:
+            print("Unable to convert value '%s' to type '%s' on line %d" % (x, y, line), file=sys.stderr)
         except Exception, e:
-            print "Error on line '%s'" % row, e
+            print("Error on line %d: %s" % (line, e), file=sys.stderr)
 
 
     conn.commit()
     c.close()
 
-def _guess_types(fileobj, max_sample_size=100):
+def _guess_types(reader, max_sample_size=100):
     '''Guess column types (as for SQLite) of CSV.
 
     :param fileobj: read-only file object for a CSV file.
     '''
-    reader = csv.reader(fileobj, delimiter=detectDelimiter(fileobj))
     # skip header
     _headers = reader.next()
     # we default to text for each field
@@ -86,41 +92,53 @@ def _guess_types(fileobj, max_sample_size=100):
         'real': 0,
         'text': 0
         }
+
     results = [ dict(perresult) for x in range(len(_headers)) ]
-    for count,row in enumerate(reader):
-        for idx,cell in enumerate(row):
+    sample_counts = [ 0 for x in range(len(_headers)) ]
+
+    for row_index,row in enumerate(reader):
+        for column,cell in enumerate(row):
             cell = cell.strip()
+            if len(cell) == 0:
+                continue
+
             # replace ',' with '' to improve cast accuracy for ints and floats
-            if(cell.count(',')):
+            if(cell.count(',') > 0):
                cell = cell.replace(',', '')
                if(cell.count('E') == 0):
                   cell = cell + "E0"
-            for key,cast in options:
+
+            for data_type,cast in options:
                 try:
-                    # for null cells we can assume success
-                    if cell:
-                        cast(cell)
-                    results[idx][key] += 1
-                # shz: ignore all exceptions
-                except (Exception), inst:
+                    cast(cell)
+                    results[column][data_type] += 1
+                    sample_counts[column] += 1
+                except ValueError:
                     pass
-        if count >= max_sample_size:
+
+        have_max_samples = True
+        for column,cell in enumerate(row):
+            if sample_counts[column] < max_sample_size:
+                have_max_samples = False
+
+        if have_max_samples:
             break
-    for idx,colresult in enumerate(results):
-        for _type, dontcare in options:
-            if colresult[_type] == count + 1:
-                types[idx] = _type
+
+    for column,colresult in enumerate(results):
+        for _type, _ in options:
+            if colresult[_type] > 0 and colresult[_type] >= colresult[types[column]]:
+                types[column] = _type
+
     return types
 
 
 if __name__ == '__main__':
-    import sys
-    if len(sys.argv) < 3:
-        print('''csv2sqlite.py {csv-file-path} {sqlite-db-path} [{table-name}]
-
-Convert a csv file to a table in an sqlite database (which need not yet exist).
-
-* table-name is optional and defaults to 'data'
+    parser = argparse.ArgumentParser(description='''
+Convert a CSV file to a table in a SQLite database.
+The database is created if it does not yet exist.
 ''')
-        sys.exit(1)
-    convert(*sys.argv[1:])
+    parser.add_argument('csv_file', type=str, help='Input CSV file path')
+    parser.add_argument('sqlite_db_file', type=str, help='Output SQLite file')
+    parser.add_argument('table_name', type=str, nargs='?', help='Name of table to write to in SQLite file', default='data')
+    args = parser.parse_args()
+    convert(args.csv_file, args.sqlite_db_file, args.table_name)
