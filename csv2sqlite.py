@@ -13,25 +13,47 @@ import argparse
 import csv
 import sqlite3
 
-def convert(filepath_or_fileobj, dbpath, table):
+
+def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None):
     if isinstance(filepath_or_fileobj, basestring):
         fo = open(filepath_or_fileobj, 'rU')
     else:
         fo = filepath_or_fileobj
 
+    header_given = headerspath_or_fileobj is not None
+    if header_given:
+        if isinstance(headerspath_or_fileobj, basestring):
+            ho = open(headerspath_or_fileobj, 'rU')
+        else:
+            ho = headerspath_or_fileobj
+    else:
+        ho = None
+
     dialect = csv.Sniffer().sniff(fo.readline())
     fo.seek(0)
 
-    reader = csv.reader(fo, dialect)
-    types = _guess_types(reader)
-    fo.seek(0)
+    if ho is None:
+        reader = csv.reader(fo, dialect)
+        headers = [header.strip() for header in csv.reader(fo, dialect).next()]
+        fo.seek(0)
+    else:
+        header_reader = csv.reader(ho, dialect)
+        headers = [header.strip() for header in header_reader.next()]
+        ho.close()
 
-    reader = csv.reader(fo, dialect)
-    headers = [header.strip() for header in reader.next()]
+    type_reader = csv.reader(fo, dialect)
+    types = _guess_types(type_reader)
+    fo.seek(0)
 
     _columns = ','.join(
         ['"%s" %s' % (header, _type) for (header,_type) in zip(headers, types)]
         )
+
+    reader = csv.reader(fo, dialect)
+
+    if ho is None:
+        # Skip the header
+        reader.next()
 
     conn = sqlite3.connect(dbpath)
     # shz: fix error with non-ASCII input
@@ -70,13 +92,17 @@ def convert(filepath_or_fileobj, dbpath, table):
     conn.commit()
     c.close()
 
-def _guess_types(reader, max_sample_size=100):
+def _guess_types(reader, max_sample_size=100, headers=None):
     '''Guess column types (as for SQLite) of CSV.
 
     :param fileobj: read-only file object for a CSV file.
     '''
     # skip header
-    _headers = reader.next()
+    if headers == None:
+        _headers = reader.next()
+    else:
+        _headers = headers
+
     # we default to text for each field
     types = ['text'] * len(_headers)
     # order matters
@@ -141,5 +167,6 @@ The database is created if it does not yet exist.
     parser.add_argument('csv_file', type=str, help='Input CSV file path')
     parser.add_argument('sqlite_db_file', type=str, help='Output SQLite file')
     parser.add_argument('table_name', type=str, nargs='?', help='Name of table to write to in SQLite file', default='data')
+    parser.add_argument('--headers', type=str, nargs='?', help='Headers are read from this file, if provided.', default=None)
     args = parser.parse_args()
-    convert(args.csv_file, args.sqlite_db_file, args.table_name)
+    convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers)
