@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import StringIO
-import csv
 import os
 import sqlite3
 import tempfile
@@ -17,11 +16,12 @@ class Csv2SqliteTestCase(unittest.TestCase):
         if os.path.exists(TEMP_DB_PATH):
             os.remove(TEMP_DB_PATH)
 
-    def convert_csv(self, csv, table = DEFAULT_TABLE_NAME):
+    def convert_csv(self, csv, table = DEFAULT_TABLE_NAME, headers = None):
         '''Converts a CSV file to a SQLite database and returns a database cursor
            into the resulting file'''
         dbpath = TEMP_DB_PATH
-        convert(StringIO.StringIO(csv), dbpath, table)
+        headerObj = StringIO.StringIO(headers) if headers is not None else None
+        convert(StringIO.StringIO(csv), dbpath, table, headerObj)
         conn = sqlite3.connect(dbpath)
         c = conn.cursor()
         return c
@@ -49,6 +49,16 @@ class Csv2SqliteTestCase(unittest.TestCase):
         c.execute('SELECT COUNT(heading_3) FROM %s' % DEFAULT_TABLE_NAME);
         row = c.next()
         self.assertEqual(row[0], 3)
+
+    def test_separate_headers(self):
+        '''Headers passed separately test case.'''
+        csv = '''abc,1,1,0
+              xyz,2,2,1'''
+        headers = '''heading_1,heading_2,heading_3,heading_4'''
+        c = self.convert_csv(csv, headers=headers)
+        c.execute('SELECT COUNT(heading_3) FROM %s' % DEFAULT_TABLE_NAME);
+        row = c.next()
+        self.assertEqual(row[0], 2)
 
     def test_strips_headers(self):
         c = self.convert_csv('''col_a    , col_b''')
