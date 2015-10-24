@@ -20,39 +20,39 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None):
     else:
         fo = filepath_or_fileobj
 
+    dialect = csv.Sniffer().sniff(fo.readline())
+    fo.seek(0)
+ 
+    # get  the headers
+    headers = []
     header_given = headerspath_or_fileobj is not None
     if header_given:
         if isinstance(headerspath_or_fileobj, basestring):
             ho = open(headerspath_or_fileobj, 'rU')
         else:
             ho = headerspath_or_fileobj
-    else:
-        ho = None
-
-    dialect = csv.Sniffer().sniff(fo.readline())
-    fo.seek(0)
-
-    if ho is None:
-        reader = csv.reader(fo, dialect)
-        headers = [header.strip() for header in csv.reader(fo, dialect).next()]
-        fo.seek(0)
-    else:
         header_reader = csv.reader(ho, dialect)
         headers = [header.strip() for header in header_reader.next()]
         ho.close()
+    else:
+        reader = csv.reader(fo, dialect)
+        headers = [header.strip() for header in csv.reader(fo, dialect).next()]
+        fo.seek(0)
 
+    # guess types
     type_reader = csv.reader(fo, dialect)
-    types = _guess_types(type_reader)
-    fo.seek(0)
+    if not header_given:
+        type_reader.next()
+    types = _guess_types(type_reader, len(headers))
 
+    # now load data
+    fo.seek(0)
     _columns = ','.join(
         ['"%s" %s' % (header, _type) for (header,_type) in zip(headers, types)]
         )
 
     reader = csv.reader(fo, dialect)
-
-    if ho is None:
-        # Skip the header
+    if not header_given: # Skip the header
         reader.next()
 
     conn = sqlite3.connect(dbpath)
@@ -92,19 +92,13 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None):
     conn.commit()
     c.close()
 
-def _guess_types(reader, max_sample_size=100, headers=None):
+def _guess_types(reader, number_of_columns, max_sample_size=100):
     '''Guess column types (as for SQLite) of CSV.
 
     :param fileobj: read-only file object for a CSV file.
     '''
-    # skip header
-    if headers == None:
-        _headers = reader.next()
-    else:
-        _headers = headers
-
     # we default to text for each field
-    types = ['text'] * len(_headers)
+    types = ['text'] * number_of_columns
     # order matters
     # (order in form of type you want used in case of tie to be last)
     options = [
@@ -120,8 +114,8 @@ def _guess_types(reader, max_sample_size=100, headers=None):
         'text': 0
         }
 
-    results = [ dict(perresult) for x in range(len(_headers)) ]
-    sample_counts = [ 0 for x in range(len(_headers)) ]
+    results = [ dict(perresult) for x in range(number_of_columns) ]
+    sample_counts = [ 0 for x in range(number_of_columns) ]
 
     for row_index,row in enumerate(reader):
         for column,cell in enumerate(row):
