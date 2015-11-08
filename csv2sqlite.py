@@ -12,17 +12,24 @@ import sys
 import argparse
 import csv
 import sqlite3
+import bz2
+import gzip
 
 
-def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None):
+def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None):
     if isinstance(filepath_or_fileobj, basestring):
-        fo = open(filepath_or_fileobj, 'rU')
+        if compression is None:
+            fo = open(filepath_or_fileobj, 'rU')
+        elif compression == 'bz2':
+            fo = bz2.BZ2File(filepath_or_fileobj, 'rU')
+        elif compression == 'gzip':
+            fo = gzip.open(filepath_or_fileobj, 'rU')
     else:
         fo = filepath_or_fileobj
 
     dialect = csv.Sniffer().sniff(fo.readline())
     fo.seek(0)
- 
+
     # get  the headers
     headers = []
     header_given = headerspath_or_fileobj is not None
@@ -162,5 +169,17 @@ The database is created if it does not yet exist.
     parser.add_argument('sqlite_db_file', type=str, help='Output SQLite file')
     parser.add_argument('table_name', type=str, nargs='?', help='Name of table to write to in SQLite file', default='data')
     parser.add_argument('--headers', type=str, nargs='?', help='Headers are read from this file, if provided.', default=None)
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--bz2', help='Input csv file is compressed using bzip2.', action='store_true')
+    group.add_argument('--gzip', help='Input csv file is compressed using gzip.', action='store_true')
+
     args = parser.parse_args()
-    convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers)
+
+    compression = None
+    if args.bz2:
+        compression = 'bz2'
+    elif args.gzip:
+        compression = 'gzip'
+
+    convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers, compression)
