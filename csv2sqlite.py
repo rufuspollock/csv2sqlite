@@ -90,9 +90,9 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, com
                 else int(x) if y == 'integer'
                 else x for (x,y) in zip(row, types) ]
             c.execute(_insert_tmpl, row)
-        except ValueError, e:
+        except ValueError as e:
             print("Unable to convert value '%s' to type '%s' on line %d" % (x, y, line), file=sys.stderr)
-        except Exception, e:
+        except Exception as e:
             print("Error on line %d: %s" % (line, e), file=sys.stderr)
 
 
