@@ -8,6 +8,7 @@
 
 from __future__ import print_function
 
+
 import sys
 import argparse
 import csv
@@ -16,19 +17,30 @@ import bz2
 import gzip
 from six import string_types, text_type
 
+if sys.version_info[0] > 2:
+    read_mode = 'rt'
+else:
+    read_mode = 'rU'
+
 
 def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None):
     if isinstance(filepath_or_fileobj, string_types):
         if compression is None:
-            fo = open(filepath_or_fileobj, 'rU')
+            fo = open(filepath_or_fileobj, mode=read_mode)
         elif compression == 'bz2':
-            fo = bz2.BZ2File(filepath_or_fileobj, 'rU')
+            try:
+                fo = bz2.open(filepath_or_fileobj, mode=read_mode)
+            except AttributeError:
+                fo = bz2.BZ2File(filepath_or_fileobj, mode='r')
         elif compression == 'gzip':
-            fo = gzip.open(filepath_or_fileobj, 'rU')
+            fo = gzip.open(filepath_or_fileobj, mode=read_mode)
     else:
         fo = filepath_or_fileobj
 
-    dialect = csv.Sniffer().sniff(fo.readline())
+    try:
+        dialect = csv.Sniffer().sniff(fo.readline())
+    except TypeError:
+        dialect = csv.Sniffer().sniff(str(fo.readline()))
     fo.seek(0)
 
     # get  the headers
@@ -36,7 +48,7 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, com
     header_given = headerspath_or_fileobj is not None
     if header_given:
         if isinstance(headerspath_or_fileobj, string_types):
-            ho = open(headerspath_or_fileobj, 'rU')
+            ho = open(headerspath_or_fileobj, mode=read_mode)
         else:
             ho = headerspath_or_fileobj
         header_reader = csv.reader(ho, dialect)
