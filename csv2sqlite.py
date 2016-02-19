@@ -8,48 +8,61 @@
 
 from __future__ import print_function
 
+
 import sys
 import argparse
 import csv
 import sqlite3
 import bz2
 import gzip
+from six import string_types, text_type
+
+if sys.version_info[0] > 2:
+    read_mode = 'rt'
+else:
+    read_mode = 'rU'
 
 
 def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None):
-    if isinstance(filepath_or_fileobj, basestring):
+    if isinstance(filepath_or_fileobj, string_types):
         if compression is None:
-            fo = open(filepath_or_fileobj, 'rU')
+            fo = open(filepath_or_fileobj, mode=read_mode)
         elif compression == 'bz2':
-            fo = bz2.BZ2File(filepath_or_fileobj, 'rU')
+            try:
+                fo = bz2.open(filepath_or_fileobj, mode=read_mode)
+            except AttributeError:
+                fo = bz2.BZ2File(filepath_or_fileobj, mode='r')
         elif compression == 'gzip':
-            fo = gzip.open(filepath_or_fileobj, 'rU')
+            fo = gzip.open(filepath_or_fileobj, mode=read_mode)
     else:
         fo = filepath_or_fileobj
 
-    dialect = csv.Sniffer().sniff(fo.readline())
+    try:
+        dialect = csv.Sniffer().sniff(fo.readline())
+    except TypeError:
+        dialect = csv.Sniffer().sniff(str(fo.readline()))
     fo.seek(0)
 
     # get  the headers
     headers = []
     header_given = headerspath_or_fileobj is not None
     if header_given:
-        if isinstance(headerspath_or_fileobj, basestring):
-            ho = open(headerspath_or_fileobj, 'rU')
+        if isinstance(headerspath_or_fileobj, string_types):
+            ho = open(headerspath_or_fileobj, mode=read_mode)
         else:
             ho = headerspath_or_fileobj
         header_reader = csv.reader(ho, dialect)
-        headers = [header.strip() for header in header_reader.next()]
+        headers = [header.strip() for header in next(header_reader)]
         ho.close()
     else:
         reader = csv.reader(fo, dialect)
-        headers = [header.strip() for header in csv.reader(fo, dialect).next()]
+        headers = [header.strip() for header in next(reader)]
         fo.seek(0)
 
     # guess types
     type_reader = csv.reader(fo, dialect)
     if not header_given:
-        type_reader.next()
+        next(type_reader)
     types = _guess_types(type_reader, len(headers))
 
     # now load data
@@ -60,7 +73,7 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, com
 
     reader = csv.reader(fo, dialect)
     if not header_given: # Skip the header
-        reader.next()
+        next(reader)
 
     conn = sqlite3.connect(dbpath)
     # shz: fix error with non-ASCII input
@@ -90,9 +103,9 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, com
                 else int(x) if y == 'integer'
                 else x for (x,y) in zip(row, types) ]
             c.execute(_insert_tmpl, row)
-        except ValueError, e:
+        except ValueError as e:
             print("Unable to convert value '%s' to type '%s' on line %d" % (x, y, line), file=sys.stderr)
-        except Exception, e:
+        except Exception as e:
             print("Error on line %d: %s" % (line, e), file=sys.stderr)
 
 
@@ -109,7 +122,7 @@ def _guess_types(reader, number_of_columns, max_sample_size=100):
     # order matters
     # (order in form of type you want used in case of tie to be last)
     options = [
-        ('text', unicode),
+        ('text', text_type),
         ('real', float),
         ('integer', int)
         # 'date',
