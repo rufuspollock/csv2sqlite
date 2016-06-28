@@ -18,7 +18,7 @@ class Csv2SqliteTestCase(unittest.TestCase):
         if os.path.exists(TEMP_DB_PATH):
             os.remove(TEMP_DB_PATH)
 
-    def convert_csv(self, csv, table = DEFAULT_TABLE_NAME, headers = None):
+    def convert_csv(self, csv, table = DEFAULT_TABLE_NAME, headers = None, types = None):
         '''Converts a CSV to a SQLite database and returns a database cursor
            into the resulting file'''
         dbpath = TEMP_DB_PATH
@@ -29,11 +29,18 @@ class Csv2SqliteTestCase(unittest.TestCase):
                 headerObj = BytesIO(headers)
         else:
             headerObj = None
+        if types is not None:
+            try:
+                typeObj = StringIO(types)
+            except TypeError:
+                typeObj = BytesIO(types)
+        else:
+            typeObj = None
         try:
             infile = StringIO(csv) # Python 3
         except:
             infile = BytesIO(csv)  # Python 2
-        convert(infile, dbpath, table, headerObj)
+        convert(infile, dbpath, table, headerObj, None, typeObj)
         conn = sqlite3.connect(dbpath)
         c = conn.cursor()
         return c
@@ -86,6 +93,19 @@ class Csv2SqliteTestCase(unittest.TestCase):
         c.execute('SELECT sql FROM sqlite_master WHERE name = "%s"' % DEFAULT_TABLE_NAME)
         row = next(c)
         self.assertEqual(row[0], 'CREATE TABLE data ("col_a" text,"col_b" text)')
+
+    def test_separate_types(self):
+        '''Types passed separately test case.'''
+        csv = "one,two,three\n1,1,abc\n2,2,xyz"
+        types = "integer,real,text"
+        c = self.convert_csv(csv, types=types)
+        c.execute('PRAGMA table_info(%s)' % DEFAULT_TABLE_NAME)
+        row = next(c)
+        self.assertEqual(row[2], 'integer')
+        row = next(c)
+        self.assertEqual(row[2], 'real')
+        row = next(c)
+        self.assertEqual(row[2], 'text')
 
     def test_ignores_nulls_when_guessing_col_types(self):
         '''Ignore nulls when guessing column types'''
