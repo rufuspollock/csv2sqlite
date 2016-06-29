@@ -23,7 +23,7 @@ else:
     read_mode = 'rU'
 
 
-def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None):
+def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None, typespath_or_fileobj=None):
     if isinstance(filepath_or_fileobj, string_types):
         if compression is None:
             fo = open(filepath_or_fileobj, mode=read_mode)
@@ -43,8 +43,7 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, com
         dialect = csv.Sniffer().sniff(str(fo.readline()))
     fo.seek(0)
 
-    # get  the headers
-    headers = []
+    # get the headers
     header_given = headerspath_or_fileobj is not None
     if header_given:
         if isinstance(headerspath_or_fileobj, string_types):
@@ -59,14 +58,23 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, com
         headers = [header.strip() for header in next(reader)]
         fo.seek(0)
 
-    # guess types
-    type_reader = csv.reader(fo, dialect)
-    if not header_given:
-        next(type_reader)
-    types = _guess_types(type_reader, len(headers))
+    # get the types
+    if typespath_or_fileobj is not None:
+        if isinstance(typespath_or_fileobj, string_types):
+            to = open(typespath_or_fileobj, mode=read_mode)
+        else:
+            to = typespath_or_fileobj
+        type_reader = csv.reader(to, dialect)
+        types = [_type.strip() for _type in next(type_reader)]
+        to.close()
+    else:
+        # guess types
+        type_reader = csv.reader(fo, dialect)
+        if not header_given: next(type_reader)
+        types = _guess_types(type_reader, len(headers))
+        fo.seek(0)
 
     # now load data
-    fo.seek(0)
     _columns = ','.join(
         ['"%s" %s' % (header, _type) for (header,_type) in zip(headers, types)]
         )
@@ -182,6 +190,7 @@ The database is created if it does not yet exist.
     parser.add_argument('sqlite_db_file', type=str, help='Output SQLite file')
     parser.add_argument('table_name', type=str, nargs='?', help='Name of table to write to in SQLite file', default='data')
     parser.add_argument('--headers', type=str, nargs='?', help='Headers are read from this file, if provided.', default=None)
+    parser.add_argument('--types', type=list, nargs='?', help='Types are read from this file, if provided.', default=None)
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--bz2', help='Input csv file is compressed using bzip2.', action='store_true')
@@ -195,4 +204,4 @@ The database is created if it does not yet exist.
     elif args.gzip:
         compression = 'gzip'
 
-    convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers, compression)
+    convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers, compression, args.types)

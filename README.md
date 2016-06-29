@@ -8,11 +8,42 @@ complex) check out:
 
 ## Usage
 
-Grab the script and download to your local machine. Then do:
+Download the script to your local machine. Then run:
 
-    csv2sqlite.py {csv-file-path} {sqlite-db-path} [{table-name}]
+```
+csv2sqlite.py {csv-file-path} {sqlite-db-path} [{table-name}]
+```
 
-* table-name is optional and defaults to 'data'
+The `table-name` argument is optional and defaults to “data”. The script
+supports several other options, all of which can be seen by running the script
+with the `--help` argument:
+
+```
+usage: csv2sqlite.py [-h] [--headers [HEADERS]] [--types [TYPES]]
+                     [--bz2 | --gzip]
+                     csv_file sqlite_db_file [table_name]
+
+Convert a CSV file to a table in a SQLite database. The database is created if
+it does not yet exist.
+
+positional arguments:
+  csv_file             Input CSV file path
+  sqlite_db_file       Output SQLite file
+  table_name           Name of table to write to in SQLite file
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --headers [HEADERS]  Headers are read from this file, if provided.
+  --types [TYPES]      Types are read from this file, if provided.
+  --bz2                Input csv file is compressed using bzip2.
+  --gzip               Input csv file is compressed using gzip.
+```
+
+By default, the script tries to guess the column types of the input CSV file by
+checking the first 100 rows. The desired types can be enforced by supplying the
+`--types` argument pointing at an auxiliary CSV file. The file should contain
+one row specifying the types of all the column of the input CSV file. The
+possible types are “integer”, “real”, and “string”.
 
 ## LICENSE
 
