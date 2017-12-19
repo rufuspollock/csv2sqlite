@@ -23,7 +23,7 @@ else:
     read_mode = 'rU'
 
 
-def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None, typespath_or_fileobj=None):
+def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None, typespath_or_fileobj=None, upper_case=False, lower_case=False):
     if isinstance(filepath_or_fileobj, string_types):
         if compression is None:
             fo = open(filepath_or_fileobj, mode=read_mode)
@@ -109,6 +109,8 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, com
                 None if x == ''
                 else float(x.replace(',', '')) if y == 'real'
                 else int(x) if y == 'integer'
+                else x.upper() if y == 'text' and upper_case
+                else x.lower() if y == 'text' and lower_case
                 else x for (x,y) in zip(row, types) ]
             c.execute(_insert_tmpl, row)
         except ValueError as e:
@@ -196,6 +198,10 @@ The database is created if it does not yet exist.
     group.add_argument('--bz2', help='Input csv file is compressed using bzip2.', action='store_true')
     group.add_argument('--gzip', help='Input csv file is compressed using gzip.', action='store_true')
 
+    group_cases = parser.add_mutually_exclusive_group()
+    group_cases.add_argument('--upper_case', type=bool, nargs='?', help='If true, all text is imported in upper case.', const=True, default=False)
+    group_cases.add_argument('--lower_case', type=bool, nargs='?', help='If true, all text is imported in lower case.', const=True, default=False)
+
     args = parser.parse_args()
 
     compression = None
@@ -204,4 +210,4 @@ The database is created if it does not yet exist.
     elif args.gzip:
         compression = 'gzip'
 
-    convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers, compression, args.types)
+    convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers, compression, args.types, args.upper_case, args.lower_case)

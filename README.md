@@ -37,6 +37,11 @@ optional arguments:
   --types [TYPES]      Types are read from this file, if provided.
   --bz2                Input csv file is compressed using bzip2.
   --gzip               Input csv file is compressed using gzip.
+   --upper_case [UPPER_CASE]
+                        If true, all text is imported in upper case.
+  --lower_case [LOWER_CASE]
+                        If true, all text is imported in lower case.
+
 ```
 
 By default, the script tries to guess the column types of the input CSV file by
