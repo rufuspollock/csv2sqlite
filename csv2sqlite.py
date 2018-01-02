@@ -8,7 +8,6 @@
 
 from __future__ import print_function
 
-
 import sys
 import argparse
 import csv
@@ -23,17 +22,30 @@ else:
     read_mode = 'rU'
 
 
-def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None, typespath_or_fileobj=None, upper_case=False, lower_case=False):
+def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None,
+            typespath_or_fileobj=None, upper_case=False, lower_case=False, encoding=None):
     if isinstance(filepath_or_fileobj, string_types):
         if compression is None:
-            fo = open(filepath_or_fileobj, mode=read_mode)
+            if encoding is None:
+                fo = open(filepath_or_fileobj, mode=read_mode)
+            else:
+                fo = open(filepath_or_fileobj, mode=read_mode, encoding=encoding)
         elif compression == 'bz2':
             try:
-                fo = bz2.open(filepath_or_fileobj, mode=read_mode)
+                if encoding is None:
+                    fo = bz2.open(filepath_or_fileobj, mode=read_mode)
+                else:
+                    fo = bz2.open(filepath_or_fileobj, mode=read_mode, encoding=encoding)
             except AttributeError:
-                fo = bz2.BZ2File(filepath_or_fileobj, mode='r')
+                if encoding is None:
+                    fo = bz2.BZ2File(filepath_or_fileobj, mode='r')
+                else:
+                    fo = bz2.BZ2File(filepath_or_fileobj, mode='r', encoding=encoding)
         elif compression == 'gzip':
-            fo = gzip.open(filepath_or_fileobj, mode=read_mode)
+            if encoding is None:
+                fo = gzip.open(filepath_or_fileobj, mode=read_mode)
+            else:
+                fo = gzip.open(filepath_or_fileobj, mode=read_mode, encoding=encoding)
     else:
         fo = filepath_or_fileobj
 
@@ -76,11 +88,11 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, com
 
     # now load data
     _columns = ','.join(
-        ['"%s" %s' % (header, _type) for (header,_type) in zip(headers, types)]
-        )
+        ['"%s" %s' % (header, _type) for (header, _type) in zip(headers, types)]
+    )
 
     reader = csv.reader(fo, dialect)
-    if not header_given: # Skip the header
+    if not header_given:  # Skip the header
         next(reader)
 
     conn = sqlite3.connect(dbpath)
@@ -95,7 +107,7 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, com
         pass
 
     _insert_tmpl = 'INSERT INTO %s VALUES (%s)' % (table,
-        ','.join(['?']*len(headers)))
+                                                   ','.join(['?'] * len(headers)))
 
     line = 0
     for row in reader:
@@ -111,16 +123,16 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, com
                 else int(x) if y == 'integer'
                 else x.upper() if y == 'text' and upper_case
                 else x.lower() if y == 'text' and lower_case
-                else x for (x,y) in zip(row, types) ]
+                else x for (x, y) in zip(row, types)]
             c.execute(_insert_tmpl, row)
         except ValueError as e:
             print("Unable to convert value '%s' to type '%s' on line %d" % (x, y, line), file=sys.stderr)
         except Exception as e:
             print("Error on line %d: %s" % (line, e), file=sys.stderr)
 
-
     conn.commit()
     c.close()
+
 
 def _guess_types(reader, number_of_columns, max_sample_size=100):
     '''Guess column types (as for SQLite) of CSV.
@@ -136,30 +148,30 @@ def _guess_types(reader, number_of_columns, max_sample_size=100):
         ('real', float),
         ('integer', int)
         # 'date',
-        ]
+    ]
     # for each column a set of bins for each type counting successful casts
     perresult = {
         'integer': 0,
         'real': 0,
         'text': 0
-        }
+    }
 
-    results = [ dict(perresult) for x in range(number_of_columns) ]
-    sample_counts = [ 0 for x in range(number_of_columns) ]
+    results = [dict(perresult) for x in range(number_of_columns)]
+    sample_counts = [0 for x in range(number_of_columns)]
 
-    for row_index,row in enumerate(reader):
-        for column,cell in enumerate(row):
+    for row_index, row in enumerate(reader):
+        for column, cell in enumerate(row):
             cell = cell.strip()
             if len(cell) == 0:
                 continue
 
             # replace ',' with '' to improve cast accuracy for ints and floats
-            if(cell.count(',') > 0):
-               cell = cell.replace(',', '')
-               if(cell.count('E') == 0):
-                  cell = cell + "E0"
+            if (cell.count(',') > 0):
+                cell = cell.replace(',', '')
+                if (cell.count('E') == 0):
+                    cell = cell + "E0"
 
-            for data_type,cast in options:
+            for data_type, cast in options:
                 try:
                     cast(cell)
                     results[column][data_type] += 1
@@ -168,14 +180,14 @@ def _guess_types(reader, number_of_columns, max_sample_size=100):
                     pass
 
         have_max_samples = True
-        for column,cell in enumerate(row):
+        for column, cell in enumerate(row):
             if sample_counts[column] < max_sample_size:
                 have_max_samples = False
 
         if have_max_samples:
             break
 
-    for column,colresult in enumerate(results):
+    for column, colresult in enumerate(results):
         for _type, _ in options:
             if colresult[_type] > 0 and colresult[_type] >= colresult[types[column]]:
                 types[column] = _type
@@ -190,17 +202,23 @@ The database is created if it does not yet exist.
 ''')
     parser.add_argument('csv_file', type=str, help='Input CSV file path')
     parser.add_argument('sqlite_db_file', type=str, help='Output SQLite file')
-    parser.add_argument('table_name', type=str, nargs='?', help='Name of table to write to in SQLite file', default='data')
-    parser.add_argument('--headers', type=str, nargs='?', help='Headers are read from this file, if provided.', default=None)
-    parser.add_argument('--types', type=list, nargs='?', help='Types are read from this file, if provided.', default=None)
+    parser.add_argument('table_name', type=str, nargs='?', help='Name of table to write to in SQLite file',
+                        default='data')
+    parser.add_argument('--headers', type=str, nargs='?', help='Headers are read from this file, if provided.',
+                        default=None)
+    parser.add_argument('--types', type=list, nargs='?', help='Types are read from this file, if provided.',
+                        default=None)
+    parser.add_argument('--encoding', type=str, nargs='?', help='Encoding of the original .csv file')
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--bz2', help='Input csv file is compressed using bzip2.', action='store_true')
     group.add_argument('--gzip', help='Input csv file is compressed using gzip.', action='store_true')
 
     group_cases = parser.add_mutually_exclusive_group()
-    group_cases.add_argument('--upper_case', type=bool, nargs='?', help='If true, all text is imported in upper case.', const=True, default=False)
-    group_cases.add_argument('--lower_case', type=bool, nargs='?', help='If true, all text is imported in lower case.', const=True, default=False)
+    group_cases.add_argument('--upper_case', type=bool, nargs='?', help='If true, all text is imported in upper case.',
+                             const=True, default=False)
+    group_cases.add_argument('--lower_case', type=bool, nargs='?', help='If true, all text is imported in lower case.',
+                             const=True, default=False)
 
     args = parser.parse_args()
 
@@ -210,4 +228,5 @@ The database is created if it does not yet exist.
     elif args.gzip:
         compression = 'gzip'
 
-    convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers, compression, args.types, args.upper_case, args.lower_case)
+    convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers, compression, args.types, args.upper_case,
+            args.lower_case)
