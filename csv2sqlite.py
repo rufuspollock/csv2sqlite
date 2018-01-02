@@ -229,4 +229,4 @@ The database is created if it does not yet exist.
         compression = 'gzip'
 
     convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers, compression, args.types, args.upper_case,
-            args.lower_case)
+            args.lower_case, args.encoding)
