@@ -208,7 +208,7 @@ The database is created if it does not yet exist.
                         default=None)
     parser.add_argument('--types', type=list, nargs='?', help='Types are read from this file, if provided.',
                         default=None)
-    parser.add_argument('--encoding', type=str, nargs='?', help='Encoding of the original .csv file')
+    parser.add_argument('--encoding', type=str, nargs='?', help='Encoding of the original .csv file, if necessary')
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--bz2', help='Input csv file is compressed using bzip2.', action='store_true')

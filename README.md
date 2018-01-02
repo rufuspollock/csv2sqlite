@@ -20,7 +20,7 @@ with the `--help` argument:
 
 ```
 usage: csv2sqlite.py [-h] [--headers [HEADERS]] [--types [TYPES]]
-                     [--bz2 | --gzip]
+                     [--encoding [ENCODING]] [--bz2 | --gzip]
                      csv_file sqlite_db_file [table_name]
 
 Convert a CSV file to a table in a SQLite database. The database is created if
@@ -35,6 +35,8 @@ optional arguments:
   -h, --help           show this help message and exit
   --headers [HEADERS]  Headers are read from this file, if provided.
   --types [TYPES]      Types are read from this file, if provided.
+  --encoding [ENCODING]
+                       Encoding of the original .csv file, if necessary.
   --bz2                Input csv file is compressed using bzip2.
   --gzip               Input csv file is compressed using gzip.
    --upper_case [UPPER_CASE]
