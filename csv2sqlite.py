@@ -23,7 +23,7 @@ else:
     read_mode = 'rU'
 
 
-def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None, typespath_or_fileobj=None):
+def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None, typespath_or_fileobj=None, delimiter=None):
     if isinstance(filepath_or_fileobj, string_types):
         if compression is None:
             fo = open(filepath_or_fileobj, mode=read_mode)
@@ -43,6 +43,10 @@ def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, com
         dialect = csv.Sniffer().sniff(str(fo.readline()))
     fo.seek(0)
 
+    # override with user specified delimiter
+    if delimiter:
+        dialect.delimiter = str(delimiter)
+    
     # get the headers
     header_given = headerspath_or_fileobj is not None
     if header_given:
@@ -191,6 +195,7 @@ The database is created if it does not yet exist.
     parser.add_argument('table_name', type=str, nargs='?', help='Name of table to write to in SQLite file', default='data')
     parser.add_argument('--headers', type=str, nargs='?', help='Headers are read from this file, if provided.', default=None)
     parser.add_argument('--types', type=list, nargs='?', help='Types are read from this file, if provided.', default=None)
+    parser.add_argument('--delimiter', type=str, nargs='?', help='Use this string as the delimiter, if provided.', default=None)
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--bz2', help='Input csv file is compressed using bzip2.', action='store_true')
@@ -204,4 +209,4 @@ The database is created if it does not yet exist.
     elif args.gzip:
         compression = 'gzip'
 
-    convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers, compression, args.types)
+    convert(args.csv_file, args.sqlite_db_file, args.table_name, args.headers, compression, args.types, args.delimiter)
