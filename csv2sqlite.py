@@ -26,7 +26,7 @@ else:
 def convert(filepath_or_fileobj, dbpath, table, headerspath_or_fileobj=None, compression=None, typespath_or_fileobj=None, delimiter=None):
     if isinstance(filepath_or_fileobj, string_types):
         if compression is None:
-            fo = open(filepath_or_fileobj, mode=read_mode)
+            fo = open(filepath_or_fileobj, mode=read_mode, encoding="utf8")
         elif compression == 'bz2':
             try:
                 fo = bz2.open(filepath_or_fileobj, mode=read_mode)
